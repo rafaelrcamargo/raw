@@ -1,27 +1,31 @@
-use std::io::{self, BufRead};
-use std::net::UdpSocket;
-use std::str;
+use shared::{utils, NewTransaction, Transaction, SIZE};
+use std::{
+    io::{self, BufRead},
+    net::UdpSocket,
+};
 
 fn main() -> std::io::Result<()> {
     let socket = UdpSocket::bind("127.0.0.1:4243")?;
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
-        let line = line.unwrap();
-        println!("Line read from stdin '{}'", line);
-        if &line == "BYE" {
-            break;
-        }
+        let new = NewTransaction {
+            id: 1,
+            kind: 'c' as u8,
+            value: 100,
+            description: utils::to_fixed_slice(&line.unwrap()),
+        };
 
         socket
-            .send_to(line.as_bytes(), "127.0.0.1:4242")
+            .send_to(&bincode::serialize(&new).unwrap(), "127.0.0.1:4242")
             .expect("Error on send");
 
-        let mut buf = [0; 2048];
-        let (amt, _src) = socket.recv_from(&mut buf)?;
+        let mut buf = [0; (SIZE as usize) * 10 + 1];
+        let amt = socket.recv(&mut buf)?;
 
-        let echo = str::from_utf8(&buf[..amt]).unwrap();
-        println!("Echo {}", echo);
+        buf[..amt].chunks(SIZE as usize).for_each(|x| {
+            dbg!(bincode::deserialize::<Transaction>(x).unwrap());
+        });
     }
     Ok(())
 }
