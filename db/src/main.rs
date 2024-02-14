@@ -25,9 +25,10 @@ fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
     .enumerate()
     .map(|(i, x)| {
         let transaction = Transaction::from(*x);
+        let id = i as u8 + 1;
 
         cache.insert(
-            i as u8,
+            id,
             ClientState {
                 limit: transaction.limit,
                 balance: transaction.balance,
@@ -37,10 +38,9 @@ fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
         fs::create_dir(DIR).unwrap_or_default();
 
         let mut file = OpenOptions::new()
-            .read(true)
             .append(true)
             .create(true)
-            .open(format!("{}{}", DIR, i + 1))
+            .open(format!("{}{}", DIR, id))
             .unwrap();
 
         let encoded = bincode::serialize(&transaction).unwrap();
@@ -57,21 +57,30 @@ fn main() {
 
     /* UDP Socket */
     let socket = UdpSocket::bind("127.0.0.1:4242").unwrap();
-    let mut buf = [0; 32]; // Buffer to hold the data
+    let mut buf = [0; 256]; // Buffer to hold the data
 
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
 
         // Data
         let id = buf[0] as usize;
+        dbg!(id);
 
         // Statement
         if amt == 1 {
-            socket.send_to(&get(&mut entities[id]), &src).unwrap();
+            socket
+                .send_to(
+                    &get(&mut File::open(format!("{}{}", DIR, id)).unwrap()),
+                    &src,
+                )
+                .unwrap();
+
+            continue;
         };
 
         // Transaction
         let entity = &mut cache.get_mut(&(id as u8)).unwrap();
+        dbg!(&buf);
         let transaction = bincode::deserialize::<NewTransaction>(&buf).unwrap();
         let transaction = {
             dbg!(&entity, &transaction);
