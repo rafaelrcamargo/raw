@@ -29,7 +29,6 @@ impl From<(u32, i32, i32, u8, &str)> for Transaction {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NewTransaction {
-    pub id: Option<u8>,
     #[serde(rename = "tipo")]
     #[serde(deserialize_with = "deserialize_char_from_string")]
     pub kind: u8,
