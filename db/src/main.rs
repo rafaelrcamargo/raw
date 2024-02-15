@@ -14,12 +14,12 @@ fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
         fs::create_dir(DIR).unwrap();
     }
 
-    vec![
-        (100000, 0, 0, 0, ""),
-        (80000, 0, 0, 0, ""),
-        (1000000, 0, 0, 0, ""),
-        (10000000, 0, 0, 0, ""),
-        (500000, 0, 0, 0, ""),
+    [
+        (100000, 0, 0, b'c', "init"),
+        (80000, 0, 0, b'c', "init"),
+        (1000000, 0, 0, b'c', "init"),
+        (10000000, 0, 0, b'c', "init"),
+        (500000, 0, 0, b'c', "init"),
     ]
     .iter()
     .enumerate()
@@ -56,38 +56,44 @@ fn main() {
     let mut entities = prepare(&mut cache); // Set the initial state
 
     /* UDP Socket */
-    let socket = UdpSocket::bind("127.0.0.1:4242").unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:4242").unwrap();
     let mut buf = [0; 256]; // Buffer to hold the data
 
+    println!("Server started");
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
+        // let before = Instant::now();
 
         // Data
         let id = buf[0] as usize;
-        dbg!(id);
 
         // Statement
         if amt == 1 {
             socket
                 .send_to(
                     &get(&mut File::open(format!("{}{}", DIR, id)).unwrap()),
-                    &src,
+                    src,
                 )
                 .unwrap();
-
+            // println!("GET: {:.2?}", before.elapsed());
             continue;
         };
 
         // Transaction
         let entity = &mut cache.get_mut(&(id as u8)).unwrap();
-        dbg!(&buf);
-        let transaction = bincode::deserialize::<NewTransaction>(&buf).unwrap();
+        let transaction = match bincode::deserialize::<NewTransaction>(&buf[1..amt]) {
+            Ok(x) => x,
+            Err(e) => {
+                socket.send_to(&[], src).unwrap();
+                // println!("Invalid: {:.2?}", before.elapsed());
+                dbg!(e);
+                continue;
+            }
+        };
         let transaction = {
-            dbg!(&entity, &transaction);
-
             if (buf[1] as char) == 'c' {
                 Some(transaction.to_transaction(entity.limit, entity.balance + transaction.value))
-            } else if entity.balance - transaction.value < -(entity.limit as i32) {
+            } else if entity.balance - transaction.value >= -(entity.limit as i32) {
                 Some(transaction.to_transaction(entity.limit, entity.balance - transaction.value))
             } else {
                 None
@@ -95,7 +101,8 @@ fn main() {
         };
 
         if transaction.is_none() {
-            socket.send_to("Limite excedido".as_bytes(), &src).unwrap();
+            socket.send_to(&[], src).unwrap();
+            // println!("Not allowed: {:.2?}", before.elapsed());
             continue;
         }
 
@@ -113,11 +120,16 @@ fn main() {
             },
         );
 
+        // println!("Post: {:.2?}", before.elapsed());
         socket
-            .send_to(&bincode::serialize(&success).unwrap(), &src)
+            .send_to(&bincode::serialize(&success).unwrap(), src)
             .unwrap();
 
-        insert(&mut entities[id], bincode::serialize(&transaction).unwrap());
+        insert(
+            &mut entities[id - 1],
+            bincode::serialize(&transaction).unwrap(),
+        );
+        // println!("All: {:.2?}", before.elapsed());
     }
 }
 

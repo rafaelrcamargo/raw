@@ -1,0 +1,44 @@
+name: "rinha"
+
+services:
+  loadbalancer:
+    build:
+      context: loadbalancer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - api2
+    stdin_open: false
+    tty: false
+
+  api1: &api
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      - TCP_PORT=8080
+      - UDP_PORT=4040
+    network_mode: host
+    depends_on:
+      - database
+    stdin_open: false
+    tty: false
+
+  api2:
+    <<: *api
+    depends_on:
+      - api1
+    environment:
+      - TCP_PORT=8081
+      - UDP_PORT=4041
+
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    restart: unless-stopped
+    network_mode: host
+    stdin_open: false
+    tty: false

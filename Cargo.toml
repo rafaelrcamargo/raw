@@ -1,4 +1,13 @@
 [workspace]
 resolver = "2"
 
-members = ["db", "server", "shared"]
+members = ["db", "api", "shared"]
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+panic = 'abort'
+lto = "thin"
+debug = false
+incremental = false
+overflow-checks = false

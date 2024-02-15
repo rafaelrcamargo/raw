@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub const SIZE: u8 = 31;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Transaction {
     pub limit: u32,
     pub balance: i32,
@@ -28,7 +28,7 @@ impl From<(u32, i32, i32, u8, &str)> for Transaction {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct NewTransaction {
+pub struct IncomingTransaction {
     #[serde(rename = "tipo")]
     #[serde(deserialize_with = "deserialize_char_from_string")]
     pub kind: u8,
@@ -36,6 +36,13 @@ pub struct NewTransaction {
     pub value: i32,
     #[serde(rename = "descricao")]
     #[serde(with = "serde_bytes")]
+    pub description: Vec<u8>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewTransaction {
+    pub kind: u8,
+    pub value: i32,
     pub description: Vec<u8>,
 }
 
@@ -70,13 +77,15 @@ impl NewTransaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct SuccessfulTransaction {
+    #[serde(rename = "limite")]
     pub limit: u32,
+    #[serde(rename = "saldo")]
     pub balance: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct ClientState {
     pub limit: u32,
     pub balance: i32,

@@ -1,14 +1,12 @@
-#![feature(bufread_skip_until)]
-
 use std::{
     io::prelude::*,
     net::{TcpListener, UdpSocket},
 };
 
-use shared::{utils, NewTransaction, SuccessfulTransaction, Transaction, SIZE};
+use shared::{utils, IncomingTransaction, SuccessfulTransaction, Transaction, SIZE};
 
 const NOT_FOUND: &[u8] = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-const _UNPROCESSABLE_ENTITY: &[u8] =
+const UNPROCESSABLE_ENTITY: &[u8] =
     b"HTTP/1.1 422 Unprocessable Entity\r\nContent-Length: 0\r\n\r\n";
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -18,29 +16,54 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    let socket = UdpSocket::bind("127.0.0.1:4243").unwrap();
+    let tcp_port = std::env::var("TCP_PORT").unwrap_or("8080".to_string());
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port)).unwrap();
 
-    dbg!("Server started");
+    let udp_port = std::env::var("UDP_PORT").unwrap_or("8080".to_string());
+    let socket = UdpSocket::bind(format!("0.0.0.0:{}", udp_port)).unwrap();
+
+    println!("Server started");
     for stream in listener.incoming() {
+        // let before = Instant::now();
+
+        let mut buf = [0; 320]; // Stream buffer
         let mut stream = stream.unwrap();
-        let mut buf = [0; 256];
         stream.read(&mut buf).unwrap();
 
         match buf[4] {
             32 => {
-                let id = buf[15] - b'0';
+                let id = buf[15] - b'0'; // This is probably the unsafest safe rust code possible
 
                 if id > 5 {
                     stream.write_all(NOT_FOUND).unwrap();
+                    // println!("Invalid ID: {:.2?}", before.elapsed());
                     continue;
                 }
 
-                let body = &buf[find_subsequence(&buf, b"\r\n\r\n").unwrap()
-                    ..find_subsequence(&buf, &[0]).unwrap()];
-                let body = serde_json::from_slice::<NewTransaction>(body).unwrap();
+                // This is as risky as it gets
+                let start = find_subsequence(&buf, b"\r\n\r\n").unwrap() + 4;
+                let end = find_subsequence(&buf, &[0]).unwrap();
+                let body = &mut buf[start..end];
 
-                dbg!(bincode::serialize(&body).unwrap().len());
+                let body = match simd_json::from_slice::<IncomingTransaction>(body) {
+                    Ok(x) => {
+                        if x.description.is_empty()
+                            || x.description.len() > 10
+                            || (x.kind != b'd' && x.kind != b'c')
+                        {
+                            stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
+                            // println!("Unprocessable entity: {:.2?}", before.elapsed());
+                            continue;
+                        }
+
+                        x
+                    }
+                    Err(_) => {
+                        stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
+                        // println!("Unprocessable entity: {:.2?}", before.elapsed());
+                        continue;
+                    }
+                };
 
                 socket
                     .send_to(
@@ -49,18 +72,21 @@ fn main() {
                     )
                     .expect("Error on send");
 
-                dbg!("Sent");
+                // dbg!("Sent");
 
                 let mut buf = [0; (SIZE as usize) * 10 + 1];
                 let amt = socket.recv(&mut buf).unwrap();
 
-                dbg!(amt);
+                if amt == 0 {
+                    stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
+                    // println!("Unprocessable entity: {:.2?}", before.elapsed());
+                    continue;
+                }
 
                 let resp = bincode::deserialize::<SuccessfulTransaction>(&buf[..amt]).unwrap();
-                let json = serde_json::to_string(&resp).unwrap();
+                let json = simd_json::to_string(&resp).unwrap();
 
-                dbg!(&json);
-
+                // println!("Ops. POST: {:.2?}", before.elapsed());
                 stream
                     .write_all(
                         format!(
@@ -72,16 +98,23 @@ fn main() {
                     )
                     .unwrap();
 
+                // println!("Sent POST: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream
             }
             47 => {
                 let id = buf[14] - b'0';
-                dbg!(id);
-                /* socket
+
+                if id > 5 {
+                    stream.write_all(NOT_FOUND).unwrap();
+                    // println!("Invalid ID: {:.2?}", before.elapsed());
+                    continue;
+                }
+
+                socket
                     .send_to(&bincode::serialize(&id).unwrap(), "127.0.0.1:4242")
                     .expect("Error on send");
 
-                dbg!("Sent");
+                // dbg!("Sent");
 
                 let mut buf = [0; (SIZE as usize) * 10 + 1];
                 let amt = socket.recv(&mut buf).unwrap();
@@ -91,11 +124,12 @@ fn main() {
                     .map(|x| bincode::deserialize::<Transaction>(x).unwrap());
 
                 let resp = to_json(transactions.collect::<Vec<Transaction>>());
-                dbg!(&resp);
+
                 /* let resp = bincode::deserialize::<Vec<Transaction>>(&buf[..amt]).unwrap();
-                let json = serde_json::to_string(&resp).unwrap();
+                let json = simd_json::to_string(&resp).unwrap();
                 dbg!(&json); */
 
+                // println!("Ops. GET: {:.2?}", before.elapsed());
                 stream
                     .write_all(
                         format!(
@@ -105,45 +139,20 @@ fn main() {
                         )
                         .as_bytes(),
                     )
-                    .unwrap(); */
+                    .unwrap();
 
+                // println!("Sent GET: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream
             }
             _ => {
                 stream.write_all(NOT_FOUND).unwrap();
+                // println!("Not found: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream
             }
         }
     }
 }
 
-/**
- * We need now to impl for Transaction to map to JSON
- * the format should be:
-{
-  "saldo": {
-    "total": -9098,
-    "data_extrato": "2024-01-17T02:34:41.217753Z",
-    "limite": 100000
-  },
-  "ultimas_transacoes": [
-    {
-      "valor": 10,
-      "tipo": "c",
-      "descricao": "descricao",
-      "realizada_em": "2024-01-17T02:34:38.543030Z"
-    },
-    {
-      "valor": 90000,
-      "tipo": "d",
-      "descricao": "descricao",
-      "realizada_em": "2024-01-17T02:34:38.543030Z"
-    }
-  ]
-}
- * Where saldo is the balance, limit and the date of the last transaction
- * and ultimas_transacoes is the last 10 transactions
- */
 fn to_json(transactions: Vec<Transaction>) -> String {
     let last = transactions.last().unwrap();
 
@@ -156,8 +165,9 @@ fn to_json(transactions: Vec<Transaction>) -> String {
 
     let ultimas_transacoes = transactions
         .iter()
+        .rev()
         .map(|x| {
-            dbg!(String::from_utf8_lossy(&x.description));
+            // dbg!(String::from_utf8_lossy(&x.description));
 
             format!(
                 r#"{{"valor":{},"tipo":"{}","descricao":"{}","realizada_em":"{}"}}"#,
@@ -171,7 +181,7 @@ fn to_json(transactions: Vec<Transaction>) -> String {
         .join(",");
 
     format!(
-        r#"{{{}"ultimas_transacoes":[{}]}}"#,
+        r#"{{{},"ultimas_transacoes":[{}]}}"#,
         saldo, ultimas_transacoes
     )
 }
