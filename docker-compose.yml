@@ -1,43 +1,44 @@
 name: "rinha"
 
 services:
-  loadbalancer:
-    build:
-      context: loadbalancer
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    network_mode: host
-    depends_on:
-      - api2
-    stdin_open: false
-    tty: false
+  # loadbalancer:
+  #   build:
+  #     context: loadbalancer
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - server1
+  #     - server2
+  #   restart: unless-stopped
+  #   network_mode: host
+  #   stdin_open: false
+  #   tty: false
 
-  api1: &api
+  server1: &server
     build:
       context: .
-      dockerfile: Dockerfile.api
-    restart: unless-stopped
-    environment:
-      - TCP_PORT=8080
-      - UDP_PORT=4040
-    network_mode: host
+      dockerfile: ./server/Dockerfile
     depends_on:
       - database
+    environment:
+      - TCP_PORT=9999
+      - UDP_PORT=4040
+    restart: unless-stopped
+    network_mode: host
     stdin_open: false
     tty: false
 
-  api2:
-    <<: *api
-    depends_on:
-      - api1
-    environment:
-      - TCP_PORT=8081
-      - UDP_PORT=4041
+  # server2:
+  #   <<: *server
+  #   depends_on:
+  #     - database
+  #   environment:
+  #     - TCP_PORT=8081
+  #     - UDP_PORT=4041
 
   database:
     build:
       context: .
-      dockerfile: Dockerfile.db
+      dockerfile: ./database/Dockerfile
     restart: unless-stopped
     network_mode: host
     stdin_open: false

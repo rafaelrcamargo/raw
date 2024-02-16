@@ -22,7 +22,7 @@ fn main() {
     let udp_port = std::env::var("UDP_PORT").unwrap_or("8080".to_string());
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", udp_port)).unwrap();
 
-    println!("Server started");
+    println!("Server started on: {}", tcp_port);
     for stream in listener.incoming() {
         // let before = Instant::now();
 

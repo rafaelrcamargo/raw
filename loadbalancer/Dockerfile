@@ -1,5 +1,5 @@
 # From Nginx fixed version
-FROM macbre/nginx-http3:1.25.2
+FROM nginx:latest
 
 # Web port
 EXPOSE 9999

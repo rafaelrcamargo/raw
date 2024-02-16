@@ -59,7 +59,7 @@ fn main() {
     let socket = UdpSocket::bind("0.0.0.0:4242").unwrap();
     let mut buf = [0; 256]; // Buffer to hold the data
 
-    println!("Server started");
+    println!("Database started on: 4242");
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
         // let before = Instant::now();

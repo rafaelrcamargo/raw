@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["db", "api", "shared"]
+members = ["shared", "database", "server"]
 
 [profile.release]
 opt-level = 3
