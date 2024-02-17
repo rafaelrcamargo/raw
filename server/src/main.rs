@@ -66,7 +66,7 @@ fn main() {
                 socket
                     .send_to(
                         &[&[id], bincode::serialize(&body).unwrap().as_slice()].concat(),
-                        "0.0.0.0:4242",
+                        "database:4242",
                     )
                     .expect("Error on send");
                 // println!("DB Req: {:.2?}", before.elapsed());
@@ -107,7 +107,7 @@ fn main() {
                 }
 
                 socket
-                    .send_to(&[id], "0.0.0.0:4242")
+                    .send_to(&[id], "database:4242")
                     .expect("Error on send");
 
                 let mut buf = [0; (SIZE as usize) * 10];
