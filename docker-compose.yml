@@ -19,16 +19,13 @@ services:
       - database
     environment:
       - TCP_PORT=80
+      - DB_URL=database
     restart: unless-stopped
     stdin_open: false
     tty: false
 
   server2:
     <<: *server
-    depends_on:
-      - database
-    environment:
-      - TCP_PORT=80
 
   database:
     build:

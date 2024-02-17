@@ -1,11 +1,12 @@
+#![allow(unused_must_use)]
+
+use shared::{ClientState, NewTransaction, SuccessfulTransaction, Transaction, TRANSACTION_SIZE};
+use smallvec::{smallvec, SmallVec};
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    net::UdpSocket,
+    net::UdpSocket
 };
-
-use shared::{ClientState, NewTransaction, SuccessfulTransaction, Transaction, SIZE};
-use smallvec::{smallvec, SmallVec};
 
 const DIR: &str = "data/";
 fn prepare(cache: &mut SmallVec<[ClientState; 5]>) -> SmallVec<[File; 5]> {
@@ -19,7 +20,7 @@ fn prepare(cache: &mut SmallVec<[ClientState; 5]>) -> SmallVec<[File; 5]> {
         (80000, 0, 0, b'c', "init"),
         (1000000, 0, 0, b'c', "init"),
         (10000000, 0, 0, b'c', "init"),
-        (500000, 0, 0, b'c', "init"),
+        (500000, 0, 0, b'c', "init")
     ]
     .iter()
     .enumerate()
@@ -29,7 +30,7 @@ fn prepare(cache: &mut SmallVec<[ClientState; 5]>) -> SmallVec<[File; 5]> {
 
         cache[i] = ClientState {
             limit: transaction.limit,
-            balance: transaction.balance,
+            balance: transaction.balance
         };
 
         fs::create_dir(DIR).unwrap_or_default();
@@ -70,7 +71,7 @@ fn main() {
 
         // Statement
         if amt == 1 {
-            socket.send_to(&get(&mut entities[id - 1]), src).unwrap();
+            socket.send_to(&get(&mut entities[id - 1]), src);
             // println!("GET: {:.2?}", before.elapsed());
             continue;
         };
@@ -85,39 +86,33 @@ fn main() {
             } else if entity.balance - new.value >= -(entity.limit as i32) {
                 new.to_transaction(entity.limit, entity.balance - new.value)
             } else {
-                socket.send_to(&[], src).unwrap();
+                socket.send_to(&[], src);
                 // println!("Not allowed: {:.2?}", before.elapsed());
                 continue;
             }
         };
 
         let success = SuccessfulTransaction::from_transaction(&transaction);
-        cache[id - 1] =
-            unsafe { std::mem::transmute::<&SuccessfulTransaction, &ClientState>(&success) }
-                .to_owned();
+        cache[id - 1] = unsafe { std::mem::transmute::<&SuccessfulTransaction, &ClientState>(&success) }.to_owned();
 
         // println!("Post: {:.2?}", before.elapsed());
-        socket
-            .send_to(&bincode::serialize(&success).unwrap(), src)
-            .unwrap();
-
-        insert(
-            &mut entities[id - 1],
-            bincode::serialize(&transaction).unwrap(),
-        );
+        socket.send_to(&bincode::serialize(&success).unwrap(), src);
+        insert(&mut entities[id - 1], bincode::serialize(&transaction).unwrap());
         // println!("All: {:.2?}", before.elapsed());
     }
 }
 
-fn insert(file: &mut File, data: Vec<u8>) {
-    file.write_all(&data).unwrap()
-}
+fn insert(file: &mut File, data: Vec<u8>) { file.write_all(&data); }
 
 fn get(file: &mut File) -> Vec<u8> {
-    let amount = file.metadata().unwrap().len().min((SIZE as u64) * 10);
+    let amount = file
+        .metadata()
+        .unwrap()
+        .len()
+        .min((TRANSACTION_SIZE as u64) * 10);
     let mut buf = vec![0u8; amount as usize];
-    file.seek(SeekFrom::End(-(amount as i64))).unwrap();
-    file.read_exact(&mut buf).unwrap();
-    file.rewind().unwrap();
+    file.seek(SeekFrom::End(-(amount as i64)));
+    file.read_exact(&mut buf);
+    file.rewind();
     buf
 }
