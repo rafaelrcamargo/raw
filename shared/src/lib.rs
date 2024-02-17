@@ -21,7 +21,7 @@ impl From<(u32, i32, i32, u8, &str)> for Transaction {
             balance,
             value,
             operation,
-            description: utils::to_fixed_slice(description),
+            description: utils::to_fixed_slice(description.as_bytes()),
             timestamp: utils::get_time(),
         }
     }
@@ -35,31 +35,51 @@ pub struct IncomingTransaction {
     #[serde(rename = "valor")]
     pub value: i32,
     #[serde(rename = "descricao")]
-    #[serde(with = "serde_bytes")]
-    pub description: Vec<u8>,
+    #[serde(deserialize_with = "deserialize_slice_from_string")]
+    pub description: [u8; 10],
 }
 
 #[derive(Deserialize, Debug)]
 pub struct NewTransaction {
     pub kind: u8,
     pub value: i32,
-    pub description: Vec<u8>,
+    pub description: [u8; 10],
 }
 
 fn deserialize_char_from_string<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let s: String = Deserialize::deserialize(deserializer)?;
-
+    let s: String = Deserialize::deserialize(deserializer).map_err(serde::de::Error::custom)?;
     // Assume the string contains only one character
-    if let Some(c) = s.chars().next() {
-        Ok(c as u8)
-    } else {
-        Err(serde::de::Error::custom(
-            "Expected a string with exactly one character",
-        ))
+    match s.bytes().next() {
+        Some(c) => {
+            if c != b'c' && c != b'd' {
+                return Err(serde::de::Error::custom(
+                    "Expected a string with only 'c' or 'd'",
+                ));
+            }
+
+            Ok(c)
+        }
+        None => Err(serde::de::Error::custom(
+            "Expected a string with at least one character",
+        )),
     }
+}
+
+fn deserialize_slice_from_string<'de, D>(deserializer: D) -> Result<[u8; 10], D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer).map_err(serde::de::Error::custom)?;
+    if s.is_empty() || s.len() > 10 {
+        return Err(serde::de::Error::custom(
+            "Expected a string with at most 10 characters",
+        ));
+    }
+    // Assume the string contains 10 characters or less
+    Ok(utils::to_fixed_slice(s.as_bytes()))
 }
 
 impl NewTransaction {
@@ -69,7 +89,7 @@ impl NewTransaction {
             balance,
             value: self.value,
             operation: self.kind,
-            description: utils::from_vec_to_fixed_slice(&self.description),
+            description: self.description,
             timestamp: utils::get_time(),
         }
     }
@@ -83,6 +103,15 @@ pub struct SuccessfulTransaction {
     pub balance: i32,
 }
 
+impl SuccessfulTransaction {
+    pub fn from_transaction(transaction: &Transaction) -> Self {
+        Self {
+            limit: transaction.limit,
+            balance: transaction.balance,
+        }
+    }
+}
+
 #[derive(Debug, Copy)]
 pub struct ClientState {
     pub limit: u32,
@@ -91,9 +120,6 @@ pub struct ClientState {
 
 impl Clone for ClientState {
     fn clone(&self) -> Self {
-        Self {
-            limit: self.limit,
-            balance: self.balance,
-        }
+        *self
     }
 }

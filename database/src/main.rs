@@ -60,7 +60,7 @@ fn main() {
     let socket = UdpSocket::bind("0.0.0.0:4242").unwrap();
     let mut buf = [0; 256]; // Buffer to hold the data
 
-    // println!("Database started! (UDP: 4242)");
+    println!("Database started! (UDP: 4242)");
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
         // let before = Instant::now();
@@ -77,41 +77,24 @@ fn main() {
 
         // Transaction
         let entity = &mut cache[id - 1];
-        let transaction = match bincode::deserialize::<NewTransaction>(&buf[1..amt]) {
-            Ok(x) => x,
-            Err(e) => {
+        let new = bincode::deserialize::<NewTransaction>(&buf[1..amt]).unwrap();
+
+        let transaction = {
+            if buf[1] == b'c' {
+                new.to_transaction(entity.limit, entity.balance + new.value)
+            } else if entity.balance - new.value >= -(entity.limit as i32) {
+                new.to_transaction(entity.limit, entity.balance - new.value)
+            } else {
                 socket.send_to(&[], src).unwrap();
-                // println!("Invalid: {:.2?}", before.elapsed());
-                dbg!(e);
+                // println!("Not allowed: {:.2?}", before.elapsed());
                 continue;
             }
         };
-        let transaction = {
-            if (buf[1] as char) == 'c' {
-                Some(transaction.to_transaction(entity.limit, entity.balance + transaction.value))
-            } else if entity.balance - transaction.value >= -(entity.limit as i32) {
-                Some(transaction.to_transaction(entity.limit, entity.balance - transaction.value))
-            } else {
-                None
-            }
-        };
 
-        if transaction.is_none() {
-            socket.send_to(&[], src).unwrap();
-            // println!("Not allowed: {:.2?}", before.elapsed());
-            continue;
-        }
-
-        let transaction = transaction.unwrap();
-        let success = SuccessfulTransaction {
-            limit: transaction.limit,
-            balance: transaction.balance,
-        };
-
-        cache[id - 1] = ClientState {
-            limit: transaction.limit,
-            balance: transaction.balance,
-        };
+        let success = SuccessfulTransaction::from_transaction(&transaction);
+        cache[id - 1] =
+            unsafe { std::mem::transmute::<&SuccessfulTransaction, &ClientState>(&success) }
+                .to_owned();
 
         // println!("Post: {:.2?}", before.elapsed());
         socket
@@ -134,7 +117,7 @@ fn get(file: &mut File) -> Vec<u8> {
     let amount = file.metadata().unwrap().len().min((SIZE as u64) * 10);
     let mut buf = vec![0u8; amount as usize];
     file.seek(SeekFrom::End(-(amount as i64))).unwrap();
-    file.read(&mut buf).unwrap();
+    file.read_exact(&mut buf).unwrap();
     file.rewind().unwrap();
     buf
 }

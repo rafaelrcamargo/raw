@@ -23,7 +23,7 @@ fn main() {
     let udp_port = std::env::var("UDP_PORT").unwrap_or("4040".to_string());
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", udp_port)).unwrap();
 
-    // println!("Server started! (TCP: {}, UDP: {})", tcp_port, udp_port);
+    println!("Server started! (TCP: {}, UDP: {})", tcp_port, udp_port);
 
     for stream in listener.incoming() {
         // let before = Instant::now();
@@ -51,19 +51,7 @@ fn main() {
                 // println!("Parsed: {:.2?}", before.elapsed());
 
                 let body = match simd_json::from_slice::<IncomingTransaction>(body) {
-                    Ok(body) => {
-                        if body.description.is_empty()
-                            || body.description.len() > 10
-                            || (body.kind != b'c' && body.kind != b'd')
-                        {
-                            stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
-                            // println!("Unprocessable entity: {:?}", body);
-                            // println!("Unprocessable entity: {:.2?}", before.elapsed());
-                            continue;
-                        }
-
-                        body
-                    }
+                    Ok(body) => body,
                     Err(_) => {
                         stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
                         /* println!(
@@ -127,8 +115,6 @@ fn main() {
                 let mut buf = [0; (SIZE as usize) * 10];
                 let amt = socket.recv(&mut buf).unwrap();
 
-                // dbg!("DB GET: {}", amt);
-
                 let transactions = to_json(
                     buf[..amt]
                         .chunks(SIZE as usize)
@@ -138,13 +124,13 @@ fn main() {
 
                 // println!("Ops. GET: {} - {:.2?}",transactions.len(),before.elapsed());
 
-                let mut resp = String::with_capacity(920);
+                let mut resp = String::with_capacity(768);
                 resp.push_str("HTTP/1.1 200 OK\r\nContent-Length:");
                 resp.push_str(&transactions.len().to_string());
                 resp.push_str("\r\n\r\n");
                 resp.push_str(&transactions);
-                stream.write_all(resp.as_bytes()).unwrap();
 
+                stream.write_all(resp.as_bytes()).unwrap();
                 // println!("Sent GET: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream
             }
@@ -159,7 +145,7 @@ fn main() {
 
 fn to_json(transactions: SmallVec<[Transaction; 10]>) -> String {
     let last = transactions.last().unwrap();
-    let mut resp = String::with_capacity(896);
+    let mut resp = String::with_capacity(704);
 
     resp.push_str(r#"{"saldo":{"total":"#);
     resp.push_str(&last.balance.to_string());
