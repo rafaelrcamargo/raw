@@ -1,14 +1,14 @@
 use std::{
-    collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
     net::UdpSocket,
 };
 
 use shared::{ClientState, NewTransaction, SuccessfulTransaction, Transaction, SIZE};
+use smallvec::{smallvec, SmallVec};
 
 const DIR: &str = "data/";
-fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
+fn prepare(cache: &mut SmallVec<[ClientState; 5]>) -> SmallVec<[File; 5]> {
     if fs::metadata(DIR).is_ok() {
         fs::remove_dir_all(DIR).unwrap();
         fs::create_dir(DIR).unwrap();
@@ -25,21 +25,19 @@ fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
     .enumerate()
     .map(|(i, x)| {
         let transaction = Transaction::from(*x);
-        let id = i as u8 + 1;
+        let id = i + 1;
 
-        cache.insert(
-            id,
-            ClientState {
-                limit: transaction.limit,
-                balance: transaction.balance,
-            },
-        );
+        cache[i] = ClientState {
+            limit: transaction.limit,
+            balance: transaction.balance,
+        };
 
         fs::create_dir(DIR).unwrap_or_default();
 
         let mut file = OpenOptions::new()
             .append(true)
             .create(true)
+            .read(true)
             .open(format!("{}{}", DIR, id))
             .unwrap();
 
@@ -48,18 +46,21 @@ fn prepare(cache: &mut HashMap<u8, ClientState>) -> Vec<File> {
 
         file
     })
-    .collect::<Vec<File>>()
+    .collect()
 }
 
 fn main() {
-    let mut cache = HashMap::<u8, ClientState>::new();
+    let mut cache: SmallVec<[ClientState; 5]> = smallvec![ClientState {
+        balance: 0,
+        limit: 0,
+    }; 5];
+
     let mut entities = prepare(&mut cache); // Set the initial state
 
-    /* UDP Socket */
     let socket = UdpSocket::bind("0.0.0.0:4242").unwrap();
     let mut buf = [0; 256]; // Buffer to hold the data
 
-    println!("Database started on: 4242");
+    // println!("Database started! (UDP: 4242)");
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
         // let before = Instant::now();
@@ -69,18 +70,13 @@ fn main() {
 
         // Statement
         if amt == 1 {
-            socket
-                .send_to(
-                    &get(&mut File::open(format!("{}{}", DIR, id)).unwrap()),
-                    src,
-                )
-                .unwrap();
+            socket.send_to(&get(&mut entities[id - 1]), src).unwrap();
             // println!("GET: {:.2?}", before.elapsed());
             continue;
         };
 
         // Transaction
-        let entity = &mut cache.get_mut(&(id as u8)).unwrap();
+        let entity = &mut cache[id - 1];
         let transaction = match bincode::deserialize::<NewTransaction>(&buf[1..amt]) {
             Ok(x) => x,
             Err(e) => {
@@ -112,13 +108,10 @@ fn main() {
             balance: transaction.balance,
         };
 
-        cache.insert(
-            id as u8,
-            ClientState {
-                limit: transaction.limit,
-                balance: transaction.balance,
-            },
-        );
+        cache[id - 1] = ClientState {
+            limit: transaction.limit,
+            balance: transaction.balance,
+        };
 
         // println!("Post: {:.2?}", before.elapsed());
         socket
@@ -142,5 +135,6 @@ fn get(file: &mut File) -> Vec<u8> {
     let mut buf = vec![0u8; amount as usize];
     file.seek(SeekFrom::End(-(amount as i64))).unwrap();
     file.read(&mut buf).unwrap();
+    file.rewind().unwrap();
     buf
 }

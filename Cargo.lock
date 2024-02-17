@@ -48,6 +48,7 @@ dependencies = [
  "bincode",
  "serde",
  "shared",
+ "smallvec",
 ]
 
 [[package]]
@@ -291,6 +292,7 @@ dependencies = [
  "serde_json",
  "shared",
  "simd-json",
+ "smallvec",
 ]
 
 [[package]]
@@ -322,6 +324,12 @@ name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
+
+[[package]]
+name = "smallvec"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "static_assertions"

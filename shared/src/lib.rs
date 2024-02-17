@@ -69,9 +69,7 @@ impl NewTransaction {
             balance,
             value: self.value,
             operation: self.kind,
-            description: utils::to_fixed_slice(
-                &String::from_utf8_lossy(&self.description).replace('\0', ""),
-            ),
+            description: utils::from_vec_to_fixed_slice(&self.description),
             timestamp: utils::get_time(),
         }
     }
@@ -85,8 +83,17 @@ pub struct SuccessfulTransaction {
     pub balance: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy)]
 pub struct ClientState {
     pub limit: u32,
     pub balance: i32,
+}
+
+impl Clone for ClientState {
+    fn clone(&self) -> Self {
+        Self {
+            limit: self.limit,
+            balance: self.balance,
+        }
+    }
 }

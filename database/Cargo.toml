@@ -7,5 +7,6 @@ version = "0.1.0"
 bincode = "1.3.3"
 serde = { version = "1.0.196", features = ["derive"] }
 shared = { path = "../shared" }
+smallvec = "1.13.1"
 # mimalloc = "0.1.39"
 # flame = "0.2.2"
