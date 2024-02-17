@@ -31,7 +31,7 @@ fn main() {
         let mut stream = stream.unwrap();
         stream.set_nodelay(true).unwrap();
 
-        let mut buf = [0; 220]; // That's the exact size of a request
+        let mut buf = [0; 224]; // That's the exact size of a request
         let end = stream.read(&mut buf).unwrap(); // Do I need to say this is unsafe?
 
         // println!("Received: {} - {:.2?}", end, before.elapsed());
