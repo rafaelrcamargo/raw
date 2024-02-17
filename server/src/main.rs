@@ -19,11 +19,9 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 fn main() {
     let tcp_port = std::env::var("TCP_PORT").unwrap_or("9999".to_string());
     let listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port)).unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:4040").unwrap();
 
-    let udp_port = std::env::var("UDP_PORT").unwrap_or("4040".to_string());
-    let socket = UdpSocket::bind(format!("0.0.0.0:{}", udp_port)).unwrap();
-
-    println!("Server started! (TCP: {}, UDP: {})", tcp_port, udp_port);
+    println!("Server started! (TCP: {})", tcp_port);
 
     for stream in listener.incoming() {
         // let before = Instant::now();
@@ -68,7 +66,7 @@ fn main() {
                 socket
                     .send_to(
                         &[&[id], bincode::serialize(&body).unwrap().as_slice()].concat(),
-                        "0.0.0.0:4242",
+                        "database:4242",
                     )
                     .expect("Error on send");
                 // println!("DB Req: {:.2?}", before.elapsed());
@@ -109,7 +107,7 @@ fn main() {
                 }
 
                 socket
-                    .send_to(&[id], "0.0.0.0:4242")
+                    .send_to(&[id], "database:4242")
                     .expect("Error on send");
 
                 let mut buf = [0; (SIZE as usize) * 10];
