@@ -21,7 +21,7 @@ fn main() {
     let listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port)).unwrap();
     let socket = UdpSocket::bind("0.0.0.0:4040").unwrap();
 
-    println!("Server started! (TCP: {}, UDP: {})", tcp_port, udp_port);
+    println!("Server started! (TCP: {})", tcp_port);
 
     for stream in listener.incoming() {
         // let before = Instant::now();
@@ -66,7 +66,7 @@ fn main() {
                 socket
                     .send_to(
                         &[&[id], bincode::serialize(&body).unwrap().as_slice()].concat(),
-                        "database:4242",
+                        "0.0.0.0:4242",
                     )
                     .expect("Error on send");
                 // println!("DB Req: {:.2?}", before.elapsed());
@@ -107,7 +107,7 @@ fn main() {
                 }
 
                 socket
-                    .send_to(&[id], "database:4242")
+                    .send_to(&[id], "0.0.0.0:4242")
                     .expect("Error on send");
 
                 let mut buf = [0; (SIZE as usize) * 10];
