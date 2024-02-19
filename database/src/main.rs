@@ -1,5 +1,3 @@
-#![allow(unused_must_use)]
-
 use shared::{ClientState, NewTransaction, SuccessfulTransaction, Transaction, TRANSACTION_SIZE};
 use smallvec::{smallvec, SmallVec};
 use std::{
@@ -63,22 +61,24 @@ fn main() {
 
     println!("Database started! (UDP: 4242)");
     loop {
-        let (amt, src) = socket.recv_from(&mut buf).unwrap();
-        // let before = Instant::now();
+        let (n, peer) = socket.recv_from(&mut buf).unwrap();
+        let before = std::time::Instant::now();
 
         // Data
         let id = buf[0] as usize;
 
         // Statement
-        if amt == 1 {
-            socket.send_to(&get(&mut entities[id - 1]), src);
-            // println!("GET: {:.2?}", before.elapsed());
+        if n == 1 {
+            socket.send_to(&get(&mut entities[id - 1], id), peer).unwrap();
+            println!("GET: {:.2?}", before.elapsed());
             continue;
         };
 
         // Transaction
         let entity = &mut cache[id - 1];
-        let new = bincode::deserialize::<NewTransaction>(&buf[1..amt]).unwrap();
+        let new = bincode::deserialize::<NewTransaction>(&buf[1..n]).unwrap();
+
+        println!("\n\n{:?}", new);
 
         let transaction = {
             if buf[1] == b'c' {
@@ -86,8 +86,8 @@ fn main() {
             } else if entity.balance - new.value >= -(entity.limit as i32) {
                 new.to_transaction(entity.limit, entity.balance - new.value)
             } else {
-                socket.send_to(&[], src);
-                // println!("Not allowed: {:.2?}", before.elapsed());
+                socket.send_to(&[], peer).unwrap();
+                println!("Not allowed: {:.2?}", before.elapsed());
                 continue;
             }
         };
@@ -95,24 +95,33 @@ fn main() {
         let success = SuccessfulTransaction::from_transaction(&transaction);
         cache[id - 1] = unsafe { std::mem::transmute::<&SuccessfulTransaction, &ClientState>(&success) }.to_owned();
 
-        // println!("Post: {:.2?}", before.elapsed());
-        socket.send_to(&bincode::serialize(&success).unwrap(), src);
+        println!("Post: {:.2?}", before.elapsed());
+        socket
+            .send_to(&bincode::serialize(&success).unwrap(), peer)
+            .unwrap();
         insert(&mut entities[id - 1], bincode::serialize(&transaction).unwrap());
-        // println!("All: {:.2?}", before.elapsed());
+        println!("All: {:.2?}", before.elapsed());
     }
 }
 
-fn insert(file: &mut File, data: Vec<u8>) { file.write_all(&data); }
+fn insert(file: &mut File, data: Vec<u8>) { file.write_all(&data).unwrap(); }
 
-fn get(file: &mut File) -> Vec<u8> {
+fn get(file: &mut File, id: usize) -> Vec<u8> {
     let amount = file
         .metadata()
         .unwrap()
         .len()
         .min((TRANSACTION_SIZE as u64) * 10);
     let mut buf = vec![0u8; amount as usize];
-    file.seek(SeekFrom::End(-(amount as i64)));
-    file.read_exact(&mut buf);
-    file.rewind();
+    file.seek(SeekFrom::End(-(amount as i64))).unwrap();
+    file.read_exact(&mut buf).unwrap();
+    file.rewind().unwrap();
+    println!(
+        "Read: {} - {:?}",
+        id,
+        buf.chunks(TRANSACTION_SIZE as usize)
+            .map(|x| bincode::deserialize::<Transaction>(x).unwrap())
+            .collect::<SmallVec<[Transaction; 10]>>()
+    );
     buf
 }

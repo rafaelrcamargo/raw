@@ -5,7 +5,7 @@ pub mod utils;
 /// Encoded transaction size
 pub const TRANSACTION_SIZE: u8 = 31;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub limit: u32,
     pub balance: i32,
