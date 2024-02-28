@@ -1,15 +1,17 @@
 name: "rinha"
 
 services:
-  proxy:
-    image: haproxy
-    ports:
-      - "9999:9999"
+  loadbalancer:
+    build:
+      context: .
+      dockerfile: ./loadbalancer/Dockerfile
     depends_on:
       - server1
       - server2
-    volumes:
-      - ./haproxy:/usr/local/etc/haproxy
+    network_mode: "host"
+    restart: unless-stopped
+    stdin_open: false
+    tty: false
 
   server1: &server
     build:
@@ -17,20 +19,22 @@ services:
       dockerfile: ./server/Dockerfile
     depends_on:
       - database
-    environment:
-      - TCP_PORT=80
-      - DB_URL=database
+    network_mode: "host"
     restart: unless-stopped
     stdin_open: false
     tty: false
 
   server2:
     <<: *server
+    environment:
+      - TCP_PORT=8081
+      - UDP_PORT=4041
 
   database:
     build:
       context: .
       dockerfile: ./database/Dockerfile
+    network_mode: "host"
     restart: unless-stopped
     stdin_open: false
     tty: false

@@ -11,8 +11,9 @@ const DIR: &str = "data/";
 fn prepare(cache: &mut SmallVec<ClientState, 5>) -> SmallVec<File, 5> {
     if fs::metadata(DIR).is_ok() {
         fs::remove_dir_all(DIR).unwrap();
-        fs::create_dir(DIR).unwrap();
     }
+
+    fs::create_dir_all(DIR).unwrap();
 
     [
         (100000, 0, 0, b'c', "init"),
