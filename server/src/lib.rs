@@ -6,6 +6,7 @@ pub const NOT_FOUND: &[u8] = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r
 /// Static HTTP 522 response
 pub const UNPROCESSABLE_ENTITY: &[u8] = b"HTTP/1.1 422 Unprocessable Entity\r\nContent-Length: 0\r\n\r\n";
 
+#[inline]
 /// Find a pattern in a slice
 pub fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
@@ -13,8 +14,9 @@ pub fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+#[inline]
 /// Convert the transactions to a JSON string
-pub fn to_json(transactions: SmallVec<[Transaction; 10]>) -> String {
+pub fn to_json(transactions: SmallVec<Transaction, 10>) -> String {
     let last = transactions.last().unwrap();
     let mut resp = String::with_capacity(704);
 

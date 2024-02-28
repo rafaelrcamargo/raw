@@ -4,7 +4,6 @@ pub mod utils;
 
 /// Encoded transaction size
 pub const TRANSACTION_SIZE: u8 = 31;
-
 #[derive(Serialize, Deserialize)]
 pub struct Transaction {
     pub limit: u32,
@@ -125,6 +124,10 @@ impl SuccessfulTransaction {
 pub struct ClientState {
     pub limit: u32,
     pub balance: i32
+}
+
+impl From<(u32, i32)> for ClientState {
+    fn from((limit, balance): (u32, i32)) -> Self { Self { limit, balance } }
 }
 
 impl Clone for ClientState {
