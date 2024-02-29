@@ -1,16 +1,18 @@
-FROM rust:slim-buster as build
+FROM rust:slim-bookworm as build
 WORKDIR /usr/src/rinha
 
 # Workspace setup
 COPY . .
 
+RUN apt-get update -yqq && apt-get install -yqq cmake g++
+
 # Build for release
-RUN cargo build --release
+RUN RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 # Base image
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 # Update package list
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -yqq && rm -rf /var/lib/apt/lists/*
 # Copy build artifact from build stage to this stage
 COPY --from=build /usr/src/rinha/target/release/loadbalancer .
 

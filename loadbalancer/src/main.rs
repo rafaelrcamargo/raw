@@ -1,38 +1,22 @@
+#[global_allocator]
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
+
 use async_std::{
     io::{ReadExt, WriteExt},
-    net::{TcpListener, TcpStream},
-    sync::Mutex
+    net::{TcpListener, TcpStream}
 };
 use futures::stream::StreamExt;
-use std::sync::Arc;
-
-struct RoundRobin<T> {
-    items: Arc<Mutex<Vec<T>>>,
-    current_index: usize
-}
-
-impl<T> RoundRobin<T>
-where
-    T: Clone
-{
-    fn new(items: Vec<T>) -> Self {
-        RoundRobin {
-            items: Arc::new(Mutex::new(items)),
-            current_index: 0
-        }
+use std::{
+    net::Ipv4Addr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc
     }
+};
 
-    async fn next(&mut self) -> Option<T> {
-        let items = self.items.lock().await;
-        if items.is_empty() {
-            None
-        } else {
-            let next_item = items[self.current_index].clone();
-            self.current_index = (self.current_index + 1) % items.len();
-            Some(next_item)
-        }
-    }
-}
+// Static server addresses
+const SERVER_1: (Ipv4Addr, u16) = (Ipv4Addr::new(0, 0, 0, 0), 8080);
+const SERVER_2: (Ipv4Addr, u16) = (Ipv4Addr::new(0, 0, 0, 0), 8081);
 
 #[async_std::main]
 async fn main() {
@@ -41,8 +25,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let items = vec!["8080", "8081"];
-    let round_robin = Arc::new(Mutex::new(RoundRobin::new(items)));
+    let round_robin = Arc::new(AtomicBool::new(true));
 
     println!("Server started! (TCP: {})", addr);
     listener
@@ -55,13 +38,15 @@ async fn main() {
         .await;
 }
 
-async fn forward_stream(mut stream: TcpStream, server: Arc<Mutex<RoundRobin<&str>>>) {
+async fn forward_stream(mut stream: TcpStream, server: Arc<AtomicBool>) {
     let mut buf = [0u8; 1024]; // That's the exact size of a request
     let n = stream.read(&mut buf).await.unwrap();
 
-    let addr = String::from("0.0.0.0:") + server.lock().await.next().await.unwrap();
+    let server = server
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| Some(!x))
+        .unwrap();
 
-    match TcpStream::connect(addr).await {
+    match TcpStream::connect(if server { SERVER_1 } else { SERVER_2 }).await {
         Ok(mut inner_stream) => {
             inner_stream.write_all(&buf[0..n]).await.unwrap();
             let mut data = [0u8; 1024];

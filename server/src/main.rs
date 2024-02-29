@@ -1,3 +1,6 @@
+#[global_allocator]
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
+
 use bincode::config;
 use server::*;
 use shared::{IncomingTransaction, SuccessfulTransaction, Transaction, TRANSACTION_SIZE};
@@ -44,7 +47,6 @@ fn main() {
                 let body = match simd_json::from_slice::<IncomingTransaction>(body) {
                     Ok(body) => body,
                     Err(_) => {
-                        // dbg!(String::from_utf8_lossy(body));
                         stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
                         // println!("Unprocessable entity: {:.2?}", before.elapsed());
                         continue;
@@ -72,7 +74,6 @@ fn main() {
 
                 if n == 0 {
                     stream.write_all(UNPROCESSABLE_ENTITY).unwrap();
-                    // println!("Unprocessable entity: {:?}", buf);
                     // println!("Unprocessable entity: {:.2?}", before.elapsed());
                     continue;
                 }
@@ -83,13 +84,12 @@ fn main() {
 
                 // println!("Deserialized: {} {:.2?}", json.len(), before.elapsed());
 
-                let mut resp = String::with_capacity(32);
+                let mut resp = String::with_capacity(96);
                 resp.push_str("HTTP/1.1 200 OK\r\nContent-Length:");
                 resp.push_str(&json.len().to_string());
                 resp.push_str("\r\n\r\n");
                 resp.push_str(&json);
                 stream.write_all(resp.as_bytes()).unwrap();
-
                 // println!("Sent POST: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream
             }
@@ -120,12 +120,11 @@ fn main() {
 
                 // println!("Ops. GET: {} - {:.2?}", transactions.len(), before.elapsed());
 
-                let mut resp = String::with_capacity(768);
+                let mut resp = String::with_capacity(960);
                 resp.push_str("HTTP/1.1 200 OK\r\nContent-Length:");
                 resp.push_str(&transactions.len().to_string());
                 resp.push_str("\r\n\r\n");
                 resp.push_str(&transactions);
-
                 stream.write_all(resp.as_bytes()).unwrap();
                 // println!("Sent GET: {:.2?}", before.elapsed());
                 continue; // We don't want to close the stream

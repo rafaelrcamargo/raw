@@ -9,5 +9,6 @@ bincode = { version = "=2.0.0-rc.3", features = ["serde"] }
 shared = { path = "../shared" }
 simd-json = "0.13.8"
 smallvec = { version = "=2.0.0-alpha.3", features = ["write"] }
+snmalloc-rs = "0.3.5"
 # snmalloc-rs = "0.3.4"
 # mimalloc = "0.1.39"

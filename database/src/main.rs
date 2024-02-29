@@ -1,3 +1,6 @@
+/* #[global_allocator]
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc; */
+
 use bincode::config;
 use shared::{ClientState, NewTransaction, SuccessfulTransaction, Transaction, TRANSACTION_SIZE};
 use smallvec::{smallvec_inline, SmallVec};
