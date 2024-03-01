@@ -12,6 +12,11 @@ services:
     restart: unless-stopped
     stdin_open: false
     tty: false
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 50M
 
   server1: &server
     build:
@@ -23,6 +28,11 @@ services:
     restart: unless-stopped
     stdin_open: false
     tty: false
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 50M
 
   server2:
     <<: *server
@@ -38,3 +48,8 @@ services:
     restart: unless-stopped
     stdin_open: false
     tty: false
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 50M
