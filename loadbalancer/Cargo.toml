@@ -1,9 +1,8 @@
 [package]
+edition = "2021"
 name = "loadbalancer"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 async-std = { version = "1.12", features = ["attributes"] }
 futures = "0.3.30"
-snmalloc-rs = "0.3.5"

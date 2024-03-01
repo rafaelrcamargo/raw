@@ -1,6 +1,3 @@
-#[global_allocator]
-static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
-
 use async_std::{
     io::{ReadExt, WriteExt},
     net::{TcpListener, TcpStream}

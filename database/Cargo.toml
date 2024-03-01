@@ -4,10 +4,8 @@ name = "database"
 version = "0.1.0"
 
 [dependencies]
-bincode = { version = "=2.0.0-rc.3", features = ["serde"] }
-serde = { version = "1.0.196", features = ["derive"] }
+bincode = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
 shared = { path = "../shared" }
-smallvec = { version = "=2.0.0-alpha.3", features = ["write"] }
-snmalloc-rs = "0.3.5"
-# mimalloc = "0.1.39"
+smallvec = { workspace = true, features = ["write"] }
 # flame = "0.2.2"
