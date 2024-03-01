@@ -3,11 +3,16 @@ resolver = "2"
 
 members = ["shared", "database", "server", "loadbalancer"]
 
+[workspace.dependencies]
+bincode = { version = "=2.0.0-rc.3", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+smallvec = { version = "=2.0.0-alpha.3", features = ["write"] }
+
 [profile.release]
-opt-level = 3
 codegen-units = 1
-panic = 'abort'
-lto = "thin"
 debug = false
 incremental = false
+lto = "fat"
+opt-level = 3
 overflow-checks = false
+panic = "abort"
