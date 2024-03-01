@@ -13,6 +13,6 @@ RUN RUSTFLAGS="-C target-cpu=native" cargo build --release
 FROM alpine:latest
 
 # Copy build artifact from build stage to this stage
-COPY --from=build /usr/src/rinha/target/x86_64-unknown-linux-musl/release/database .
+COPY --from=build /usr/src/rinha/target/release/database .
 
 CMD ["./database"]
