@@ -25,7 +25,7 @@ async fn main() {
     println!("Server started! (TCP: {})", addr);
     listener
         .incoming()
-        .for_each_concurrent(/* limit */ 2, |stream| async {
+        .for_each_concurrent(/* limit */ 4, |stream| async {
             let stream = stream.unwrap();
             stream.set_nodelay(true).unwrap();
             handle_request(stream, socket.clone()).await;
@@ -41,12 +41,6 @@ async fn handle_request(mut stream: TcpStream, socket: Arc<Mutex<UdpSocket>>) {
     match buf[4] {
         32 => {
             let id = buf[15] - b'0'; // This is probably the unsafest safe rust code ever
-
-            if id > 5 {
-                stream.write_all(NOT_FOUND).await.unwrap();
-                // println!("Invalid ID: {:.2?}", before.elapsed());
-                return stream.flush().await.unwrap();
-            }
 
             let start = find_subsequence(&buf, b"\r\n\r\n").unwrap() + 4;
             let body = &mut buf[start..end];
@@ -106,12 +100,6 @@ async fn handle_request(mut stream: TcpStream, socket: Arc<Mutex<UdpSocket>>) {
         }
         47 => {
             let id = buf[14] - b'0';
-
-            if id > 5 {
-                stream.write_all(NOT_FOUND).await.unwrap();
-                // println!("Invalid ID: {:.2?}", before.elapsed());
-                return stream.flush().await.unwrap();
-            }
 
             let socket = socket.lock().await;
 

@@ -27,7 +27,7 @@ async fn main() {
     println!("Server started! (TCP: {})", addr);
     listener
         .incoming()
-        .for_each_concurrent(/* limit */ 4, |stream| async {
+        .for_each_concurrent(/* limit */ 8, |stream| async {
             let stream = stream.unwrap();
             stream.set_nodelay(true).unwrap();
             forward_stream(stream, round_robin.clone()).await;
@@ -35,9 +35,38 @@ async fn main() {
         .await;
 }
 
+/// Static HTTP 404 response
+pub const NOT_FOUND: &[u8] = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+
 async fn forward_stream(mut stream: TcpStream, server: Arc<AtomicBool>) {
     let mut buf = [0u8; 1024]; // That's the exact size of a request
     let n = stream.read(&mut buf).await.unwrap();
+
+    match buf[4] {
+        32 => {
+            let id = buf[15] - b'0'; // This is probably the unsafest safe rust code ever
+
+            if id > 5 {
+                stream.write_all(NOT_FOUND).await.unwrap();
+                // println!("Invalid ID: {:.2?}", before.elapsed());
+                return stream.flush().await.unwrap();
+            }
+        }
+        47 => {
+            let id = buf[14] - b'0'; // This is probably the unsafest safe rust code ever
+
+            if id > 5 {
+                stream.write_all(NOT_FOUND).await.unwrap();
+                // println!("Invalid ID: {:.2?}", before.elapsed());
+                return stream.flush().await.unwrap();
+            }
+        }
+        _ => {
+            stream.write_all(NOT_FOUND).await.unwrap();
+            // println!("Invalid ID: {:.2?}", before.elapsed());
+            return stream.flush().await.unwrap();
+        }
+    }
 
     let server = server
         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| Some(!x))
